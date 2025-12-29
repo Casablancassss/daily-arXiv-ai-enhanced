@@ -225,16 +225,6 @@ jobs:
         git commit -m "update: $(date -u '+%Y-%m-%d') arXiv papers"
         echo "变更已提交 / Changes committed"
         
-    - name: Read AI summary content
-      if: steps.dedup_check.outputs.has_new_content == 'true'
-      id: read_summary
-      run: |
-        FILENAME="data/${{ steps.crawl_step.outputs.crawl_date }}_AI_enhanced_${{ vars.LANGUAGE }}.jsonl"
-        # 只取前 10 行总结，防止过长
-        content=$(head -n 5 "$FILENAME" | sed 's/"//g') 
-        echo "SUMMARY_CONTENT<<EOF" >> $GITHUB_OUTPUT
-        echo "$content" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Send mail
       if: steps.dedup_check.outputs.has_new_content == 'true'
@@ -247,15 +237,12 @@ jobs:
         subject: arXiv Daily AI Report - ${{ steps.crawl_step.outputs.crawl_date }}
         to: woshiyangjunyi@163.com
         from: arXiv Robot
-        # 重点：在这里直接引用上面读取到的内容
         body: |
-          你好！这是今日最新的 arXiv AI 论文增强摘要：
+          今日 AI 论文摘要已生成！
           
-          ---
-          ${{ steps.read_summary.outputs.SUMMARY_CONTENT }}
-          ---
-          
-          查看完整网页版：https://Casablancassss.github.io/daily-arXiv-ai-enhanced/
+          由于内容较长，为了保证阅读体验，请查看附件或访问网页版：
+          https://Casablancassss.github.io/daily-arXiv-ai-enhanced/
+        attachments: data/${{ steps.crawl_step.outputs.crawl_date }}_AI_enhanced_${{ vars.LANGUAGE }}.jsonl
         
     - name: Pull latest changes and push
       if: steps.dedup_check.outputs.has_new_content == 'true'
