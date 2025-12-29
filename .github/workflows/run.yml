@@ -229,11 +229,9 @@ jobs:
       if: steps.dedup_check.outputs.has_new_content == 'true'
       id: read_summary
       run: |
-        # 确定文件名
         FILENAME="data/${{ steps.crawl_step.outputs.crawl_date }}_AI_enhanced_${{ vars.LANGUAGE }}.jsonl"
-        # 读取内容并处理换行符，存入 GITHUB_OUTPUT
-        # 注意：这里我们只取前 2000 个字符，防止邮件正文过长导致发送失败
-        content=$(cat "$FILENAME" | head -n 50) 
+        # 只取前 10 行总结，防止过长
+        content=$(head -n 5 "$FILENAME" | sed 's/"//g') 
         echo "SUMMARY_CONTENT<<EOF" >> $GITHUB_OUTPUT
         echo "$content" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
