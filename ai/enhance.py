@@ -3,9 +3,6 @@ import json
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
-from queue import Queue
-from threading import Lock
-# INSERT_YOUR_CODE
 import requests
 
 import dotenv

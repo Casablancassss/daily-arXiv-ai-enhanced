@@ -5,7 +5,7 @@ name: arXiv-daily-ai-enhanced
 
 on:
   schedule:
-    - cron: "30 1 * * *"
+    - cron: "0 23 * * *"
   workflow_dispatch:
 
 
@@ -122,7 +122,37 @@ jobs:
             exit 1
         fi
         echo "AI增强处理完成 / AI enhancement processing completed"
-        
+
+    - name: LLM Relevance Scoring
+      if: steps.dedup_check.outputs.has_new_content == 'true'
+      run: |
+        source .venv/bin/activate
+        today=${{ steps.crawl_step.outputs.crawl_date }}
+        echo "开始LLM相关性评分... / Starting LLM relevance scoring..."
+
+        cd ai
+        export OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+        export OPENAI_BASE_URL=${{ secrets.OPENAI_BASE_URL }}
+        export LANGUAGE="${{ vars.LANGUAGE }}"
+        export MODEL_NAME="${{ vars.MODEL_NAME }}"
+
+        # 运行LLM相关性评分（如果有设置研究画像）
+        if [ -n "${{ vars.RESEARCH_PROFILE }}" ]; then
+          export RESEARCH_PROFILE="${{ vars.RESEARCH_PROFILE }}"
+          python score_relevance.py --data ../data/${today}_AI_enhanced_${LANGUAGE}.jsonl
+
+          SCORED_FILE="../data/${today}_AI_enhanced_${LANGUAGE}.scored.jsonl"
+          if [ $? -eq 0 ] && [ -f "$SCORED_FILE" ] && [ -s "$SCORED_FILE" ]; then
+            # 替换原始文件为评分后的文件
+            mv "$SCORED_FILE" ../data/${today}_AI_enhanced_${LANGUAGE}.jsonl
+            echo "LLM相关性评分完成 / LLM relevance scoring completed"
+          else
+            echo "LLM评分失败或输出文件为空，将使用默认评分 / LLM scoring failed or output empty, using default scores"
+          fi
+        else
+          echo "未设置RESEARCH_PROFILE，跳过LLM评分 / RESEARCH_PROFILE not set, skipping LLM scoring"
+        fi
+
     - name: Convert to Markdown
       if: steps.dedup_check.outputs.has_new_content == 'true'
       run: |
@@ -153,7 +183,35 @@ jobs:
             exit 1
         fi
         echo "Markdown转换完成 / Markdown conversion completed"
-        
+
+    - name: Generate and Send Report
+      if: steps.dedup_check.outputs.has_new_content == 'true'
+      run: |
+        source .venv/bin/activate
+        today=${{ steps.crawl_step.outputs.crawl_date }}
+        echo "生成论文推荐报告... / Generating paper recommendation report..."
+
+        cd ai
+        export LANGUAGE="${{ vars.LANGUAGE }}"
+        export RESEARCH_PROFILE="${{ vars.RESEARCH_PROFILE }}"
+
+        # 仅在设置了RESEARCH_PROFILE时生成报告
+        if [ -n "${{ vars.RESEARCH_PROFILE }}" ]; then
+          # 生成报告
+          if python generate_report.py --data ../data/${today}_AI_enhanced_${LANGUAGE}.jsonl --top 5 --output ../data/${today}_report.md; then
+            echo "报告生成完成 / Report generation completed"
+
+            # 发送邮件（如果配置了SMTP）
+            if [ -n "${{ vars.EMAIL_TO }}" ]; then
+              python send_report.py --report ../data/${today}_report.md --email-to "${{ vars.EMAIL_TO }}"
+            fi
+          else
+            echo "报告生成失败，跳过发送 / Report generation failed, skipping send"
+          fi
+        else
+          echo "未设置RESEARCH_PROFILE，跳过报告生成 / RESEARCH_PROFILE not set, skipping report generation"
+        fi
+
     - name: Update file list
       if: steps.dedup_check.outputs.has_new_content == 'true'
       run: |

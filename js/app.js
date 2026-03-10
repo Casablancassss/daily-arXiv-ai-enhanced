@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function fetchGitHubStats() {
   try {
-    const response = await fetch('https://api.github.com/repos/dw-dengwei/daily-arXiv-ai-enhanced');
+    const response = await fetch('https://api.github.com/repos/Casablancassss/daily-arXiv-ai-enhanced');
     const data = await response.json();
     const starCount = data.stargazers_count;
     const forkCount = data.forks_count;
@@ -824,6 +824,22 @@ function filterByCategory(category) {
   renderPapers();
 }
 
+// HTML转义函数，防止XSS (使用regex提高性能)
+function escapeHtml(text) {
+  if (!text) return '';
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+  return text.replace(/[&<>"']/g, c => map[c]);
+}
+
+// 格式化相关性分数为百分比显示
+function formatRelevanceScore(score) {
+  if (!score || score <= 0) return '';
+  if (score > 10) {
+    return `${Math.round(score)}%`;
+  }
+  return `${Math.round(score * 10)}%`;
+}
+
 // 帮助函数：高亮文本中的匹配内容
 function highlightMatches(text, terms, className = 'highlight-match') {
   if (!terms || terms.length === 0 || !text) {
@@ -1095,7 +1111,8 @@ function renderPapers() {
       filteredPapers.forEach(paper => {
         if (paper.relevance_score && paper.relevance_score > 0) {
           paper.isMatched = true;
-          paper.matchReason = [`相关性分数: ${paper.relevance_score.toFixed(1)}`];
+          const scoreDisplay = formatRelevanceScore(paper.relevance_score);
+          paper.matchReason = [`相关性分数: ${scoreDisplay}`];
         }
       });
     }
@@ -1137,25 +1154,29 @@ function renderPapers() {
       titleSummaryTerms.push(textSearchQuery.trim());
     }
 
-    // 高亮标题和摘要（关键词与文本搜索）
-    const highlightedTitle = titleSummaryTerms.length > 0 
-      ? highlightMatches(paper.title, titleSummaryTerms, 'keyword-highlight') 
-      : paper.title;
-    const highlightedSummary = titleSummaryTerms.length > 0 
-      ? highlightMatches(paper.summary, titleSummaryTerms, 'keyword-highlight') 
-      : paper.summary;
+    // 高亮标题和摘要（关键词与文本搜索）- 先转义HTML防止XSS
+    const escapedTitle = escapeHtml(paper.title);
+    const escapedSummary = escapeHtml(paper.summary);
+    const highlightedTitle = titleSummaryTerms.length > 0
+      ? highlightMatches(escapedTitle, titleSummaryTerms, 'keyword-highlight')
+      : escapedTitle;
+    const highlightedSummary = titleSummaryTerms.length > 0
+      ? highlightMatches(escapedSummary, titleSummaryTerms, 'keyword-highlight')
+      : escapedSummary;
 
-    // 高亮作者（作者过滤 + 文本搜索）
+    // 高亮作者（作者过滤 + 文本搜索）- 先转义HTML防止XSS
     const authorTerms = [];
     if (activeAuthors.length > 0) authorTerms.push(...activeAuthors);
     if (textSearchQuery && textSearchQuery.trim().length > 0) authorTerms.push(textSearchQuery.trim());
-    const highlightedAuthors = authorTerms.length > 0 
-      ? highlightMatches(paper.authors, authorTerms, 'author-highlight') 
-      : paper.authors;
-    
+    const escapedAuthors = escapeHtml(paper.authors);
+    const highlightedAuthors = authorTerms.length > 0
+      ? highlightMatches(escapedAuthors, authorTerms, 'author-highlight')
+      : escapedAuthors;
+
     // 显示相关性分数（如果有）
-    const relevanceScoreHtml = paper.relevance_score && paper.relevance_score > 0
-      ? `<span class="relevance-score" title="相关性分数">相关性: ${paper.relevance_score.toFixed(1)}</span>`
+    const relevanceDisplay = formatRelevanceScore(paper.relevance_score);
+    const relevanceScoreHtml = relevanceDisplay
+      ? `<span class="relevance-score" title="相关性分数">相关性: ${relevanceDisplay}</span>`
       : '';
 
     paperCard.innerHTML = `
@@ -1202,54 +1223,63 @@ function showPaperDetails(paper, paperIndex) {
   const modalTitleTerms = [];
   if (activeKeywords.length > 0) modalTitleTerms.push(...activeKeywords);
   if (textSearchQuery && textSearchQuery.trim().length > 0) modalTitleTerms.push(textSearchQuery.trim());
-  // 高亮标题
-  const highlightedTitle = modalTitleTerms.length > 0 
-    ? highlightMatches(paper.title, modalTitleTerms, 'keyword-highlight') 
-    : paper.title;
-  
+
+  // 先转义所有用户数据，再进行高亮处理
+  const escapedTitle = escapeHtml(paper.title);
+  const highlightedTitle = modalTitleTerms.length > 0
+    ? highlightMatches(escapedTitle, modalTitleTerms, 'keyword-highlight')
+    : escapedTitle;
+
   // 在标题前添加索引号
   modalTitle.innerHTML = paperIndex ? `<span class="paper-index-badge">${paperIndex}</span> ${highlightedTitle}` : highlightedTitle;
-  
+
   const abstractText = paper.details || '';
-  
-  const categoryDisplay = paper.allCategories ? 
-    paper.allCategories.join(', ') : 
+
+  const categoryDisplay = paper.allCategories ?
+    paper.allCategories.join(', ') :
     paper.category;
-  
+
   // 高亮作者（作者过滤 + 文本搜索）
   const modalAuthorTerms = [];
   if (activeAuthors.length > 0) modalAuthorTerms.push(...activeAuthors);
   if (textSearchQuery && textSearchQuery.trim().length > 0) modalAuthorTerms.push(textSearchQuery.trim());
-  const highlightedAuthors = modalAuthorTerms.length > 0 
-    ? highlightMatches(paper.authors, modalAuthorTerms, 'author-highlight') 
-    : paper.authors;
-  
+  const escapedAuthors = escapeHtml(paper.authors);
+  const highlightedAuthors = modalAuthorTerms.length > 0
+    ? highlightMatches(escapedAuthors, modalAuthorTerms, 'author-highlight')
+    : escapedAuthors;
+
   // 高亮摘要（关键词 + 文本搜索）
-  const highlightedSummary = modalTitleTerms.length > 0 
-    ? highlightMatches(paper.summary, modalTitleTerms, 'keyword-highlight') 
-    : paper.summary;
-  
+  const escapedSummary = escapeHtml(paper.summary);
+  const highlightedSummary = modalTitleTerms.length > 0
+    ? highlightMatches(escapedSummary, modalTitleTerms, 'keyword-highlight')
+    : escapedSummary;
+
   // 高亮详情（Abstract/details）
-  const highlightedAbstract = modalTitleTerms.length > 0 
-    ? highlightMatches(abstractText, modalTitleTerms, 'keyword-highlight') 
-    : abstractText;
-  
+  const escapedAbstract = escapeHtml(abstractText);
+  const highlightedAbstract = modalTitleTerms.length > 0
+    ? highlightMatches(escapedAbstract, modalTitleTerms, 'keyword-highlight')
+    : escapedAbstract;
+
   // 高亮其他部分（如果存在且是摘要的一部分）
-  const highlightedMotivation = paper.motivation && modalTitleTerms.length > 0 
-    ? highlightMatches(paper.motivation, modalTitleTerms, 'keyword-highlight') 
-    : paper.motivation;
-  
-  const highlightedMethod = paper.method && modalTitleTerms.length > 0 
-    ? highlightMatches(paper.method, modalTitleTerms, 'keyword-highlight') 
-    : paper.method;
-  
-  const highlightedResult = paper.result && modalTitleTerms.length > 0 
-    ? highlightMatches(paper.result, modalTitleTerms, 'keyword-highlight') 
-    : paper.result;
-  
-  const highlightedConclusion = paper.conclusion && modalTitleTerms.length > 0 
-    ? highlightMatches(paper.conclusion, modalTitleTerms, 'keyword-highlight') 
-    : paper.conclusion;
+  const escapedMotivation = paper.motivation ? escapeHtml(paper.motivation) : '';
+  const highlightedMotivation = paper.motivation && modalTitleTerms.length > 0
+    ? highlightMatches(escapedMotivation, modalTitleTerms, 'keyword-highlight')
+    : escapedMotivation;
+
+  const escapedMethod = paper.method ? escapeHtml(paper.method) : '';
+  const highlightedMethod = paper.method && modalTitleTerms.length > 0
+    ? highlightMatches(escapedMethod, modalTitleTerms, 'keyword-highlight')
+    : escapedMethod;
+
+  const escapedResult = paper.result ? escapeHtml(paper.result) : '';
+  const highlightedResult = paper.result && modalTitleTerms.length > 0
+    ? highlightMatches(escapedResult, modalTitleTerms, 'keyword-highlight')
+    : escapedResult;
+
+  const escapedConclusion = paper.conclusion ? escapeHtml(paper.conclusion) : '';
+  const highlightedConclusion = paper.conclusion && modalTitleTerms.length > 0
+    ? highlightMatches(escapedConclusion, modalTitleTerms, 'keyword-highlight')
+    : escapedConclusion;
   
   // 判断是否需要显示高亮说明
   const showHighlightLegend = activeKeywords.length > 0 || activeAuthors.length > 0;

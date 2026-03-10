@@ -3,6 +3,21 @@ import argparse
 import os
 from itertools import count
 
+
+def escape_template_chars(text):
+    """
+    Escape characters that could cause template formatting issues.
+    Handles { and } which are used by str.format() by doubling them.
+    Also handles backslash-escaped braces.
+    """
+    if not text:
+        return ''
+    # First, normalize backslash-escaped braces
+    text = str(text).replace(r'\{', '{').replace(r'\}', '}')
+    # Then double all braces for str.format()
+    return text.replace('{', '{{').replace('}', '}}')
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=str, help="Path to the jsonline file")
@@ -54,15 +69,15 @@ if __name__ == "__main__":
                 
                 papers.append(
                     template.format(
-                        title=item["title"],
-                        authors=",".join(item["authors"]),
-                        summary=item["summary"],
+                        title=escape_template_chars(item["title"]),
+                        authors=escape_template_chars(",".join(item["authors"])),
+                        summary=escape_template_chars(item["summary"]),
                         url=item['abs'],
-                        tldr=ai_data.get('tldr', ''),
-                        motivation=ai_data.get('motivation', ''),
-                        method=ai_data.get('method', ''),
-                        result=ai_data.get('result', ''),
-                        conclusion=ai_data.get('conclusion', ''),
+                        tldr=escape_template_chars(ai_data.get('tldr', '')),
+                        motivation=escape_template_chars(ai_data.get('motivation', '')),
+                        method=escape_template_chars(ai_data.get('method', '')),
+                        result=escape_template_chars(ai_data.get('result', '')),
+                        conclusion=escape_template_chars(ai_data.get('conclusion', '')),
                         cate=item['categories'][0],
                         idx=next(idx)
                     )
