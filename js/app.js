@@ -501,6 +501,12 @@ function initEventListeners() {
 
 // Function to detect preferred language based on browser settings
 function getPreferredLanguage() {
+  // 优先使用 i18n 模块的语言设置
+  if (window.i18n && window.i18n.getLang) {
+    const i18nLang = window.i18n.getLang();
+    return i18nLang === 'zh' ? 'Chinese' : 'English';
+  }
+
   const browserLang = navigator.language || navigator.userLanguage;
   // Check if browser is set to Chinese variants
   if (browserLang.startsWith('zh')) {
