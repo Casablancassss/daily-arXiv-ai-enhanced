@@ -692,6 +692,16 @@ main {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
+}
+
+.relevance-score {
+  font-size: 12px;
+  color: var(--primary-color);
+  font-weight: 500;
+  background: var(--primary-light);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .paper-card-date {

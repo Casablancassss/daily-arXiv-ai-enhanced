@@ -108,7 +108,12 @@ jobs:
         export OPENAI_BASE_URL=${{ secrets.OPENAI_BASE_URL }}
         export LANGUAGE="${{ vars.LANGUAGE }}"
         export MODEL_NAME="${{ vars.MODEL_NAME }}"
-        
+
+        # 传递研究画像配置（如果有设置）
+        if [ -n "${{ vars.RESEARCH_PROFILE }}" ]; then
+          export RESEARCH_PROFILE="${{ vars.RESEARCH_PROFILE }}"
+        fi
+
         python enhance.py --data ../data/${today}.jsonl
         
         # 检查AI处理是否成功 / Check if AI processing was successful

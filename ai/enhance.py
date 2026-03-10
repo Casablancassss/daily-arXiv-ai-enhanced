@@ -26,6 +26,56 @@ if os.path.exists('.env'):
 template = open("template.txt", "r").read()
 system = open("system.txt", "r").read()
 
+def calculate_relevance_score(item: Dict, profile: Dict) -> float:
+    """
+    根据研究画像计算论文的相关性分数
+
+    评分规则：
+    - field 匹配 (权重 1.0)：在标题、摘要、AI分析的tldr/motivation中匹配研究方向
+    - pain_points 匹配 (权重 1.5)：匹配当前痛点
+    - methods 匹配 (权重 2.0)：在AI分析的method/result中匹配关注方法
+    """
+    if not profile:
+        return 0.0
+
+    score = 0.0
+    field = profile.get('field', '')
+    pain_points = profile.get('pain_points', [])
+    methods = profile.get('methods', [])
+
+    # 获取论文的文本内容
+    text_content = ' '.join([
+        item.get('title', ''),
+        item.get('summary', ''),
+        item.get('AI', {}).get('tldr', ''),
+        item.get('AI', {}).get('motivation', '')
+    ]).lower()
+
+    method_content = ' '.join([
+        item.get('AI', {}).get('method', ''),
+        item.get('AI', {}).get('result', '')
+    ]).lower()
+
+    # field 匹配 (权重 1.0)
+    if field:
+        field_lower = field.lower()
+        if field_lower in text_content:
+            score += 1.0
+
+    # pain_points 匹配 (权重 1.5)
+    for pp in pain_points:
+        pp_lower = pp.lower()
+        if pp_lower in text_content:
+            score += 1.5
+
+    # methods 匹配 (权重 2.0)
+    for method in methods:
+        method_lower = method.lower()
+        if method_lower in method_content:
+            score += 2.0
+
+    return score
+
 def parse_args():
     """解析命令行参数"""
     parser = argparse.ArgumentParser()
@@ -162,6 +212,16 @@ def main():
     model_name = os.environ.get("MODEL_NAME", 'deepseek-chat')
     language = os.environ.get("LANGUAGE", 'Chinese')
 
+    # 读取研究画像配置
+    research_profile = None
+    profile_str = os.environ.get('RESEARCH_PROFILE', '')
+    if profile_str:
+        try:
+            research_profile = json.loads(profile_str)
+            print(f'Research profile loaded: {research_profile}', file=sys.stderr)
+        except json.JSONDecodeError as e:
+            print(f'Failed to parse RESEARCH_PROFILE: {e}', file=sys.stderr)
+
     # 检查并删除目标文件
     target_file = args.data.replace('.jsonl', f'_AI_enhanced_{language}.jsonl')
     if os.path.exists(target_file):
@@ -193,6 +253,13 @@ def main():
         args.max_workers
     )
     
+    # 计算相关性分数
+    if research_profile:
+        for item in processed_data:
+            if item is not None:
+                item['relevance_score'] = calculate_relevance_score(item, research_profile)
+        print(f'Calculated relevance scores for {len(processed_data)} papers', file=sys.stderr)
+
     # 保存结果
     with open(target_file, "w") as f:
         for item in processed_data:

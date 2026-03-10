@@ -14,6 +14,7 @@ let currentFilteredPapers = []; // 当前过滤后的论文列表
 let textSearchQuery = ''; // 实时文本搜索查询
 let previousActiveKeywords = null; // 文本搜索激活时，暂存之前的关键词激活集合
 let previousActiveAuthors = null; // 文本搜索激活时，暂存之前的作者激活集合
+let researchProfile = null; // 研究画像配置
 
 // 加载用户的关键词设置
 function loadUserKeywords() {
@@ -1072,7 +1073,28 @@ function renderPapers() {
       }
     });
   }
-  
+
+  // 按相关性分数排序（当没有关键词/作者匹配时，且存在 relevance_score）
+  if ((activeKeywords.length === 0 && activeAuthors.length === 0) &&
+      (!textSearchQuery || textSearchQuery.trim().length === 0)) {
+    const hasRelevanceScores = filteredPapers.some(p => p.relevance_score !== undefined && p.relevance_score > 0);
+    if (hasRelevanceScores) {
+      filteredPapers.sort((a, b) => {
+        const scoreA = a.relevance_score || 0;
+        const scoreB = b.relevance_score || 0;
+        return scoreB - scoreA; // 降序排列，高分在前
+      });
+
+      // 标记高相关性论文
+      filteredPapers.forEach(paper => {
+        if (paper.relevance_score && paper.relevance_score > 0) {
+          paper.isMatched = true;
+          paper.matchReason = [`相关性分数: ${paper.relevance_score.toFixed(1)}`];
+        }
+      });
+    }
+  }
+
   // 存储当前过滤后的论文列表，用于箭头键导航
   currentFilteredPapers = [...filteredPapers];
   
@@ -1125,6 +1147,11 @@ function renderPapers() {
       ? highlightMatches(paper.authors, authorTerms, 'author-highlight') 
       : paper.authors;
     
+    // 显示相关性分数（如果有）
+    const relevanceScoreHtml = paper.relevance_score && paper.relevance_score > 0
+      ? `<span class="relevance-score" title="相关性分数">相关性: ${paper.relevance_score.toFixed(1)}</span>`
+      : '';
+
     paperCard.innerHTML = `
       <div class="paper-card-index">${index + 1}</div>
       ${paper.isMatched ? '<div class="match-badge" title="匹配您的搜索条件"></div>' : ''}
@@ -1138,6 +1165,7 @@ function renderPapers() {
       <div class="paper-card-body">
         <p class="paper-card-summary">${highlightedSummary}</p>
         <div class="paper-card-footer">
+          ${relevanceScoreHtml}
           <span class="paper-card-date">${formatDate(paper.date)}</span>
           <span class="paper-card-link">Details</span>
         </div>
