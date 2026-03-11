@@ -219,6 +219,23 @@ def main():
         except json.JSONDecodeError as e:
             print(f'Failed to parse RESEARCH_PROFILE: {e}', file=sys.stderr)
 
+    # Fallback: read from individual environment variables
+    if not research_profile:
+        field = os.environ.get('RESEARCH_FIELD', '')
+        pain_points = os.environ.get('RESEARCH_PAIN_POINTS', '')
+        methods = os.environ.get('RESEARCH_METHODS', '')
+
+        if field or pain_points or methods:
+            research_profile = {}
+            if field:
+                research_profile['field'] = field
+            if pain_points:
+                research_profile['pain_points'] = [p.strip() for p in pain_points.split(',') if p.strip()]
+            if methods:
+                research_profile['methods'] = [m.strip() for m in methods.split(',') if m.strip()]
+            if research_profile:
+                print(f'Research profile loaded from individual vars: {research_profile}', file=sys.stderr)
+
     # 检查并删除目标文件
     target_file = args.data.replace('.jsonl', f'_AI_enhanced_{language}.jsonl')
     if os.path.exists(target_file):

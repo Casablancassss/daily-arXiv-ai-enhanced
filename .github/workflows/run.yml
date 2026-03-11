@@ -110,8 +110,10 @@ jobs:
         export MODEL_NAME="${{ vars.MODEL_NAME }}"
 
         # 传递研究画像配置（如果有设置）
-        if [ -n "${{ vars.RESEARCH_PROFILE }}" ]; then
-          export RESEARCH_PROFILE="${{ vars.RESEARCH_PROFILE }}"
+        if [ -n "${{ vars.RESEARCH_FIELD }}" ] || [ -n "${{ vars.RESEARCH_PAIN_POINTS }}" ] || [ -n "${{ vars.RESEARCH_METHODS }}" ]; then
+          export RESEARCH_FIELD="${{ vars.RESEARCH_FIELD }}"
+          export RESEARCH_PAIN_POINTS="${{ vars.RESEARCH_PAIN_POINTS }}"
+          export RESEARCH_METHODS="${{ vars.RESEARCH_METHODS }}"
         fi
 
         python enhance.py --data ../data/${today}.jsonl
@@ -125,6 +127,10 @@ jobs:
 
     - name: LLM Relevance Scoring
       if: steps.dedup_check.outputs.has_new_content == 'true'
+      env:
+        RESEARCH_FIELD: ${{ vars.RESEARCH_FIELD }}
+        RESEARCH_PAIN_POINTS: ${{ vars.RESEARCH_PAIN_POINTS }}
+        RESEARCH_METHODS: ${{ vars.RESEARCH_METHODS }}
       run: |
         source .venv/bin/activate
         today=${{ steps.crawl_step.outputs.crawl_date }}
@@ -137,11 +143,8 @@ jobs:
         export MODEL_NAME="${{ vars.MODEL_NAME }}"
 
         # 运行LLM相关性评分（如果有设置研究画像）
-        if [ -n "${{ vars.RESEARCH_PROFILE }}" ]; then
-          # 使用 toJson 确保 JSON 格式正确保留引号
-          export RESEARCH_PROFILE="${{ toJson(vars.RESEARCH_PROFILE) }}"
-          # 调试：打印 RESEARCH_PROFILE 的前50个字符
-          echo "DEBUG: RESEARCH_PROFILE value: ${RESEARCH_PROFILE:0:50}..."
+        if [ -n "$RESEARCH_FIELD" ] || [ -n "$RESEARCH_PAIN_POINTS" ] || [ -n "$RESEARCH_METHODS" ]; then
+          echo "DEBUG: RESEARCH_FIELD=$RESEARCH_FIELD, METHODS=$RESEARCH_METHODS"
           python score_relevance.py --data ../data/${today}_AI_enhanced_${LANGUAGE}.jsonl
 
           SCORED_FILE="../data/${today}_AI_enhanced_${LANGUAGE}.scored.jsonl"
@@ -153,7 +156,7 @@ jobs:
             echo "LLM评分失败或输出文件为空，将使用默认评分 / LLM scoring failed or output empty, using default scores"
           fi
         else
-          echo "未设置RESEARCH_PROFILE，跳过LLM评分 / RESEARCH_PROFILE not set, skipping LLM scoring"
+          echo "未设置研究画像，跳过LLM评分 / Research profile not set, skipping LLM scoring"
         fi
 
     - name: Convert to Markdown
@@ -196,10 +199,12 @@ jobs:
 
         cd ai
         export LANGUAGE="${{ vars.LANGUAGE }}"
-        export RESEARCH_PROFILE="${{ vars.RESEARCH_PROFILE }}"
+        export RESEARCH_FIELD="${{ vars.RESEARCH_FIELD }}"
+        export RESEARCH_PAIN_POINTS="${{ vars.RESEARCH_PAIN_POINTS }}"
+        export RESEARCH_METHODS="${{ vars.RESEARCH_METHODS }}"
 
-        # 仅在设置了RESEARCH_PROFILE时生成报告
-        if [ -n "${{ vars.RESEARCH_PROFILE }}" ]; then
+        # 仅在设置了研究画像时生成报告
+        if [ -n "${{ vars.RESEARCH_FIELD }}" ] || [ -n "${{ vars.RESEARCH_PAIN_POINTS }}" ] || [ -n "${{ vars.RESEARCH_METHODS }}" ]; then
           # 生成报告
           if python generate_report.py --data ../data/${today}_AI_enhanced_${LANGUAGE}.jsonl --top 5 --output ../data/${today}_report.md; then
             echo "报告生成完成 / Report generation completed"
@@ -212,7 +217,7 @@ jobs:
             echo "报告生成失败，跳过发送 / Report generation failed, skipping send"
           fi
         else
-          echo "未设置RESEARCH_PROFILE，跳过报告生成 / RESEARCH_PROFILE not set, skipping report generation"
+          echo "未设置研究画像，跳过报告生成 / Research profile not set, skipping report generation"
         fi
 
     - name: Update file list
@@ -301,7 +306,7 @@ jobs:
         username: ${{ secrets.MAIL_USERNAME }}
         password: ${{ secrets.MAIL_PASSWORD }}
         subject: arXiv Daily AI Report - ${{ steps.crawl_step.outputs.crawl_date }}
-        to: woshiyangjunyi@163.com
+        to: ${{ vars.EMAIL }}
         from: arXiv Robot
         body: |
           今日 AI 论文摘要已生成！

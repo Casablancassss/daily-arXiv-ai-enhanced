@@ -162,6 +162,21 @@ def main():
             print(f"Raw profile: {profile_str[:100]}...", file=sys.stderr)
             print("Please check your RESEARCH_PROFILE JSON format", file=sys.stderr)
 
+    # Fallback: read from individual environment variables
+    if not research_profile:
+        field = os.environ.get('RESEARCH_FIELD', '')
+        pain_points = os.environ.get('RESEARCH_PAIN_POINTS', '')
+        methods = os.environ.get('RESEARCH_METHODS', '')
+
+        if field or pain_points or methods:
+            research_profile = {}
+            if field:
+                research_profile['field'] = field
+            if pain_points:
+                research_profile['pain_points'] = [p.strip() for p in pain_points.split(',') if p.strip()]
+            if methods:
+                research_profile['methods'] = [m.strip() for m in methods.split(',') if m.strip()]
+
     # Generate report
     report = generate_report(
         args.data,

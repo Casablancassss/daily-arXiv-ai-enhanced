@@ -23,8 +23,8 @@ class DailyArxivPipeline:
         # Rate limiting: add delay between requests to avoid HTTP 429
         current_time = time.time()
         elapsed = current_time - self.last_request_time
-        if elapsed < 3:  # Wait at least 3 seconds between requests
-            time.sleep(3 - elapsed)
+        if elapsed < 5:  # Wait at least 5 seconds between requests
+            time.sleep(5 - elapsed)
         self.last_request_time = time.time()
 
         item["pdf"] = f"https://arxiv.org/pdf/{item['id']}"
