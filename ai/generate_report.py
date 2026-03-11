@@ -89,12 +89,12 @@ def format_paper(paper: Dict, index: int) -> str:
     url = paper.get('abs', paper.get('url', ''))
 
     return f"""
-## 📄 Paper {index} - Relevance: {score_display}
-**Title:** {title}
-**Authors:** {authors}
+## 📄 论文 {index} - 相关性: {score_display}
+**标题:** {title}
+**作者:** {authors}
 **arXiv:** {url}
 
-**TL;DR:** {tldr}
+**摘要:** {tldr}
 """
 
 
@@ -108,10 +108,10 @@ def generate_report(
     papers = load_papers(data_file, top_n)
 
     if not papers:
-        return "No relevant papers found for your research profile."
+        return "未找到符合您研究画像的相关论文。"
 
     # Build header
-    header = f"""# 📊 Daily arXiv Paper Recommendations
+    header = f"""# 📊 每日 arXiv 论文推荐
 
 """
 
@@ -125,14 +125,14 @@ def generate_report(
         if not isinstance(pain_points, (list, tuple)):
             pain_points = [pain_points] if pain_points else []
 
-        header += f"""**Research Profile:**
-- Field: {research_profile.get('field', 'N/A')}
-- Methods: {', '.join(map(str, methods))}
-- Pain Points: {', '.join(map(str, pain_points))}
+        header += f"""**研究画像:**
+- 领域: {research_profile.get('field', 'N/A')}
+- 方法: {', '.join(map(str, methods))}
+- 痛点: {', '.join(map(str, pain_points))}
 
 """
 
-    header += f"""**Top {len(papers)} Most Relevant Papers:**
+    header += f"""**最相关的 {len(papers)} 篇论文:**
 
 """
 

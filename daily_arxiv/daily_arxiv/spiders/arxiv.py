@@ -4,10 +4,6 @@ import re
 
 
 class ArxivSpider(scrapy.Spider):
-    # 限制抓取数量（用于测试，设置为0或不设置则不限制）
-    MAX_PAPERS = 4
-    # 已抓取的论文计数器
-    papers_scraped = 0
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -18,6 +14,8 @@ class ArxivSpider(scrapy.Spider):
         self.start_urls = [
             f"https://arxiv.org/list/{cat}/new" for cat in self.target_categories
         ]  # 起始URL（计算机科学领域的最新论文）
+        # 实例属性：已抓取的论文计数器
+        self.papers_scraped = 0
 
     name = "arxiv"  # 爬虫名称
     allowed_domains = ["arxiv.org"]  # 允许爬取的域名
