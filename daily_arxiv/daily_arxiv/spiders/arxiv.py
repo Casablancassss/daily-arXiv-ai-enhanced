@@ -5,7 +5,7 @@ import re
 
 class ArxivSpider(scrapy.Spider):
     # 限制抓取数量（用于测试，设置为0或不设置则不限制）
-    MAX_PAPERS = 10
+    MAX_PAPERS = 4
     # 已抓取的论文计数器
     papers_scraped = 0
 
