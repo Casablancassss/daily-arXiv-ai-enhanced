@@ -9,6 +9,7 @@ import arxiv
 import json
 import os
 import sys
+import time
 from datetime import datetime, timedelta
 
 
@@ -16,8 +17,16 @@ class DailyArxivPipeline:
     def __init__(self):
         self.page_size = 100
         self.client = arxiv.Client(self.page_size)
+        self.last_request_time = 0
 
     def process_item(self, item: dict, spider):
+        # Rate limiting: add delay between requests to avoid HTTP 429
+        current_time = time.time()
+        elapsed = current_time - self.last_request_time
+        if elapsed < 3:  # Wait at least 3 seconds between requests
+            time.sleep(3 - elapsed)
+        self.last_request_time = time.time()
+
         item["pdf"] = f"https://arxiv.org/pdf/{item['id']}"
         item["abs"] = f"https://arxiv.org/abs/{item['id']}"
         search = arxiv.Search(
