@@ -22,6 +22,15 @@ class ArxivSpider(scrapy.Spider):
     allowed_domains = ["arxiv.org"]  # 允许爬取的域名
 
     def parse(self, response):
+        # 确保实例属性已初始化（防御性编程，处理 Scrapy 可能不调用 __init__ 的情况）
+        if not hasattr(self, 'MAX_PAPERS'):
+            self.MAX_PAPERS = int(os.environ.get("MAX_PAPERS", 0))
+        if not hasattr(self, 'papers_scraped'):
+            self.papers_scraped = 0
+        if not hasattr(self, 'target_categories'):
+            categories = os.environ.get("CATEGORIES", "cs.CV")
+            self.target_categories = set(map(str.strip, categories.split(",")))
+
         # 提取每篇论文的信息
         anchors = []
         for li in response.css("div[id=dlpage] ul li"):
