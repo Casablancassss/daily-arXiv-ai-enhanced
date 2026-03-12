@@ -325,25 +325,25 @@
   .settings-page {
     padding: 16px;
   }
-  
+
   .settings-item {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
   }
-  
-  .settings-input, 
+
+  .settings-input,
   .tag-selector,
   .range-selector {
     width: 100%;
   }
-  
+
   .settings-actions {
     flex-direction: column-reverse;
     gap: 12px;
   }
-  
+
   .settings-actions button {
     width: 100%;
   }
-} 
+}

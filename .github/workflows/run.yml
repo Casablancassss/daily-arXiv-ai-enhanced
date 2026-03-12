@@ -96,24 +96,74 @@ jobs:
                 ;;
         esac
         
+    - name: Parse Research Profile
+      id: parse_profile
+      run: |
+        source .venv/bin/activate
+
+        # 检查是否设置了 RESEARCH_DESCRIPTION
+        if [ -n "${{ vars.RESEARCH_DESCRIPTION }}" ]; then
+          echo "检测到研究描述，正在解析... / Research description detected, parsing..."
+
+          cd ai
+          export OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          export OPENAI_BASE_URL=${{ secrets.OPENAI_BASE_URL }}
+          export MODEL_NAME="${{ vars.MODEL_NAME }}"
+
+          # 调用 parse_profile.py 解析研究描述
+          PROFILE_JSON=$(python parse_profile.py --description "${{ vars.RESEARCH_DESCRIPTION }}" 2>/dev/null)
+
+          if [ $? -eq 0 ] && [ -n "$PROFILE_JSON" ]; then
+            # 提取各个字段
+            RESEARCH_FIELD=$(echo "$PROFILE_JSON" | python3 -c "import sys, json; print(json.load(sys.stdin).get('field', ''))")
+            RESEARCH_PAIN_POINTS=$(echo "$PROFILE_JSON" | python3 -c "import sys, json; print(','.join(json.load(sys.stdin).get('pain_points', [])))")
+            RESEARCH_METHODS=$(echo "$PROFILE_JSON" | python3 -c "import sys, json; print(','.join(json.load(sys.stdin).get('methods', [])))")
+            RESEARCH_KEYWORDS=$(echo "$PROFILE_JSON" | python3 -c "import sys, json; print(','.join(json.load(sys.stdin).get('keywords', [])))")
+
+            # 输出到 GITHUB_OUTPUT
+            echo "RESEARCH_FIELD=$RESEARCH_FIELD" >> $GITHUB_OUTPUT
+            echo "RESEARCH_PAIN_POINTS=$RESEARCH_PAIN_POINTS" >> $GITHUB_OUTPUT
+            echo "RESEARCH_METHODS=$RESEARCH_METHODS" >> $GITHUB_OUTPUT
+            echo "RESEARCH_KEYWORDS=$RESEARCH_KEYWORDS" >> $GITHUB_OUTPUT
+
+            echo "✅ 研究画像解析成功 / Research profile parsed successfully"
+            echo "   Field: $RESEARCH_FIELD"
+            echo "   Pain Points: $RESEARCH_PAIN_POINTS"
+            echo "   Methods: $RESEARCH_METHODS"
+          else
+            echo "⚠️ 研究画像解析失败 / Research profile parsing failed"
+            echo "RESEARCH_FIELD=" >> $GITHUB_OUTPUT
+            echo "RESEARCH_PAIN_POINTS=" >> $GITHUB_OUTPUT
+            echo "RESEARCH_METHODS=" >> $GITHUB_OUTPUT
+            echo "RESEARCH_KEYWORDS=" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "未设置研究画像 / Research profile not set"
+          echo "RESEARCH_FIELD=" >> $GITHUB_OUTPUT
+          echo "RESEARCH_PAIN_POINTS=" >> $GITHUB_OUTPUT
+          echo "RESEARCH_METHODS=" >> $GITHUB_OUTPUT
+          echo "RESEARCH_KEYWORDS=" >> $GITHUB_OUTPUT
+        fi
+
     - name: AI Enhancement Processing
       if: steps.dedup_check.outputs.has_new_content == 'true'
       run: |
         source .venv/bin/activate
         today=${{ steps.crawl_step.outputs.crawl_date }}
         echo "开始AI增强处理... / Starting AI enhancement processing..."
-        
+
         cd ai
         export OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
         export OPENAI_BASE_URL=${{ secrets.OPENAI_BASE_URL }}
         export LANGUAGE="${{ vars.LANGUAGE }}"
         export MODEL_NAME="${{ vars.MODEL_NAME }}"
 
-        # 传递研究画像配置（如果有设置）
-        if [ -n "${{ vars.RESEARCH_FIELD }}" ] || [ -n "${{ vars.RESEARCH_PAIN_POINTS }}" ] || [ -n "${{ vars.RESEARCH_METHODS }}" ]; then
-          export RESEARCH_FIELD="${{ vars.RESEARCH_FIELD }}"
-          export RESEARCH_PAIN_POINTS="${{ vars.RESEARCH_PAIN_POINTS }}"
-          export RESEARCH_METHODS="${{ vars.RESEARCH_METHODS }}"
+        # 传递研究画像配置（从上一步获取）
+        if [ -n "${{ steps.parse_profile.outputs.RESEARCH_FIELD }}" ] || [ -n "${{ steps.parse_profile.outputs.RESEARCH_PAIN_POINTS }}" ] || [ -n "${{ steps.parse_profile.outputs.RESEARCH_METHODS }}" ]; then
+          export RESEARCH_FIELD="${{ steps.parse_profile.outputs.RESEARCH_FIELD }}"
+          export RESEARCH_PAIN_POINTS="${{ steps.parse_profile.outputs.RESEARCH_PAIN_POINTS }}"
+          export RESEARCH_METHODS="${{ steps.parse_profile.outputs.RESEARCH_METHODS }}"
+          export RESEARCH_KEYWORDS="${{ steps.parse_profile.outputs.RESEARCH_KEYWORDS }}"
         fi
 
         python enhance.py --data ../data/${today}.jsonl
@@ -127,10 +177,6 @@ jobs:
 
     - name: LLM Relevance Scoring
       if: steps.dedup_check.outputs.has_new_content == 'true'
-      env:
-        RESEARCH_FIELD: ${{ vars.RESEARCH_FIELD }}
-        RESEARCH_PAIN_POINTS: ${{ vars.RESEARCH_PAIN_POINTS }}
-        RESEARCH_METHODS: ${{ vars.RESEARCH_METHODS }}
       run: |
         source .venv/bin/activate
         today=${{ steps.crawl_step.outputs.crawl_date }}
@@ -142,8 +188,12 @@ jobs:
         export LANGUAGE="${{ vars.LANGUAGE }}"
         export MODEL_NAME="${{ vars.MODEL_NAME }}"
 
-        # 运行LLM相关性评分（如果有设置研究画像）
-        if [ -n "$RESEARCH_FIELD" ] || [ -n "$RESEARCH_PAIN_POINTS" ] || [ -n "$RESEARCH_METHODS" ]; then
+        # 传递研究画像配置（从上一步获取）
+        if [ -n "${{ steps.parse_profile.outputs.RESEARCH_FIELD }}" ] || [ -n "${{ steps.parse_profile.outputs.RESEARCH_PAIN_POINTS }}" ] || [ -n "${{ steps.parse_profile.outputs.RESEARCH_METHODS }}" ]; then
+          export RESEARCH_FIELD="${{ steps.parse_profile.outputs.RESEARCH_FIELD }}"
+          export RESEARCH_PAIN_POINTS="${{ steps.parse_profile.outputs.RESEARCH_PAIN_POINTS }}"
+          export RESEARCH_METHODS="${{ steps.parse_profile.outputs.RESEARCH_METHODS }}"
+          export RESEARCH_KEYWORDS="${{ steps.parse_profile.outputs.RESEARCH_KEYWORDS }}"
           echo "DEBUG: RESEARCH_FIELD=$RESEARCH_FIELD, METHODS=$RESEARCH_METHODS"
           python score_relevance.py --data ../data/${today}_AI_enhanced_${LANGUAGE}.jsonl
 
@@ -199,12 +249,14 @@ jobs:
 
         cd ai
         export LANGUAGE="${{ vars.LANGUAGE }}"
-        export RESEARCH_FIELD="${{ vars.RESEARCH_FIELD }}"
-        export RESEARCH_PAIN_POINTS="${{ vars.RESEARCH_PAIN_POINTS }}"
-        export RESEARCH_METHODS="${{ vars.RESEARCH_METHODS }}"
 
-        # 仅在设置了研究画像时生成报告
-        if [ -n "${{ vars.RESEARCH_FIELD }}" ] || [ -n "${{ vars.RESEARCH_PAIN_POINTS }}" ] || [ -n "${{ vars.RESEARCH_METHODS }}" ]; then
+        # 传递研究画像配置（从上一步获取）
+        if [ -n "${{ steps.parse_profile.outputs.RESEARCH_FIELD }}" ] || [ -n "${{ steps.parse_profile.outputs.RESEARCH_PAIN_POINTS }}" ] || [ -n "${{ steps.parse_profile.outputs.RESEARCH_METHODS }}" ]; then
+          export RESEARCH_FIELD="${{ steps.parse_profile.outputs.RESEARCH_FIELD }}"
+          export RESEARCH_PAIN_POINTS="${{ steps.parse_profile.outputs.RESEARCH_PAIN_POINTS }}"
+          export RESEARCH_METHODS="${{ steps.parse_profile.outputs.RESEARCH_METHODS }}"
+          export RESEARCH_KEYWORDS="${{ steps.parse_profile.outputs.RESEARCH_KEYWORDS }}"
+
           # 生成报告
           if python generate_report.py --data ../data/${today}_AI_enhanced_${LANGUAGE}.jsonl --top 5 --output ../data/${today}_report.md; then
             echo "报告生成完成 / Report generation completed"

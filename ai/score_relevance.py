@@ -9,6 +9,7 @@ It evaluates the relevance as a percentage (0-100%).
 import os
 import json
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Optional
 from tqdm import tqdm
@@ -44,18 +45,24 @@ class RelevanceScore(BaseModel):
 
 # Scoring prompt
 SCORING_SYSTEM_PROMPT = """You are an expert research paper evaluator. Your task is to evaluate how relevant a research paper is to a given research profile.
-Be strict but fair in your evaluation. Consider:
-1. Whether the paper's topic matches the research field
+
+CRITICAL: You must distinguish between APPLICATION DOMAIN and METHOD:
+- Using the same method (e.g., diffusion models) in DIFFERENT application domains (image generation vs human motion generation) should be considered DIFFERENT
+- Robot motion generation is NOT the same as human motion generation
+- Medical image generation is NOT the same as human motion generation
+
+Evaluation criteria (in order of importance):
+1. APPLICATION DOMAIN MATCH: Does the paper's application domain match the research field? (Most Important)
 2. Whether the paper addresses the pain points
-3. Whether the paper uses or proposes relevant methods
+3. Whether the paper uses the EXACT same methods in the SAME application domain
 4. The overall fit for someone working in this research area
 
 Provide a score from 0 to 100 where:
-- 0-20: Completely irrelevant (different field entirely)
-- 21-40: Slightly relevant (some tangential connection)
+- 0-20: Completely irrelevant (different field and application entirely)
+- 21-40: Uses similar methods but wrong application domain (e.g., diffusion for image generation when you need human motion generation)
 - 41-60: Moderately relevant (same general area)
-- 61-80: Highly relevant (directly related work)
-- 81-100: Extremely relevant (directly addresses research profile)"""
+- 61-80: Highly relevant (same application domain and methods)
+- 81-100: Extremely relevant (directly addresses research profile with exact domain match)"""
 
 SCORING_HUMAN_PROMPT = """Research Profile:
 - Field: {field}
@@ -69,7 +76,9 @@ Paper Information:
 - Method: {method}
 - Result: {result}
 
-Evaluate the relevance of this paper to the research profile and provide a score (0-100) with a brief reason."""
+IMPORTANT: Consider if this paper is about {field} specifically. A paper about "diffusion for image generation" should get LOW score if you need "diffusion for human motion generation" because the application domain is DIFFERENT.
+
+Evaluate the relevance and provide a score (0-100) with a brief reason."""
 
 
 def calculate_relevance_with_llm(
@@ -144,6 +153,12 @@ def process_all_items(
     max_workers: int
 ) -> List[Dict]:
     """Process all items with LLM-based scoring"""
+    # Request delay in seconds, default 5.0
+    try:
+        request_delay = float(os.environ.get("REQUEST_DELAY", 5))
+    except (ValueError, TypeError):
+        request_delay = 5.0
+
     llm = ChatOpenAI(model=model_name).with_structured_output(
         RelevanceScore,
         method="function_calling"
@@ -161,10 +176,14 @@ def process_all_items(
     processed_data = [None] * len(data)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_idx = {
-            executor.submit(calculate_relevance_with_llm, llm, chain, item, profile): idx
-            for idx, item in enumerate(data)
-        }
+        future_to_idx = {}
+
+        for idx, item in enumerate(data):
+            # Rate limit: sleep before submitting each request
+            if request_delay > 0 and idx > 0:
+                time.sleep(request_delay)
+            future = executor.submit(calculate_relevance_with_llm, llm, chain, item, profile)
+            future_to_idx[future] = idx
 
         for future in tqdm(
             as_completed(future_to_idx),

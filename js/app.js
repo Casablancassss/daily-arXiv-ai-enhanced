@@ -15,6 +15,7 @@ let textSearchQuery = ''; // 实时文本搜索查询
 let previousActiveKeywords = null; // 文本搜索激活时，暂存之前的关键词激活集合
 let previousActiveAuthors = null; // 文本搜索激活时，暂存之前的作者激活集合
 let researchProfile = null; // 研究画像配置
+let currentSort = 'date'; // 当前排序方式
 
 // 加载用户的关键词设置
 function loadUserKeywords() {
@@ -486,6 +487,15 @@ function initEventListeners() {
       // 清空后隐藏输入框
       searchWrapper.style.display = 'none';
     });
+
+  // 排序选择
+  const sortSelect = document.getElementById('sortSelect');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', (e) => {
+      currentSort = e.target.value;
+      renderPapers();
+    });
+  }
 
     // 失焦时：若文本为空则隐藏输入框（保持有文本时不隐藏）
     searchInput.addEventListener('blur', () => {
@@ -1098,9 +1108,12 @@ function renderPapers() {
     });
   }
 
-  // 按相关性分数排序（当没有关键词/作者匹配时，且存在 relevance_score）
-  if ((activeKeywords.length === 0 && activeAuthors.length === 0) &&
-      (!textSearchQuery || textSearchQuery.trim().length === 0)) {
+  // 按相关性分数排序（当选择按相关性排序时，或没有关键词/作者匹配时且存在 relevance_score）
+  const shouldSortByRelevance = currentSort === 'relevance' ||
+    ((activeKeywords.length === 0 && activeAuthors.length === 0) &&
+     (!textSearchQuery || textSearchQuery.trim().length === 0));
+
+  if (shouldSortByRelevance) {
     const hasRelevanceScores = filteredPapers.some(p => p.relevance_score !== undefined && p.relevance_score > 0);
     if (hasRelevanceScores) {
       filteredPapers.sort((a, b) => {
@@ -1175,10 +1188,11 @@ function renderPapers() {
       ? highlightMatches(escapedAuthors, authorTerms, 'author-highlight')
       : escapedAuthors;
 
-    // 显示相关性分数（如果有）
+    // 显示相关性分数和原因（如果有）
     const relevanceDisplay = formatRelevanceScore(paper.relevance_score);
+    const relevanceReason = paper.relevance_reason || '';
     const relevanceScoreHtml = relevanceDisplay
-      ? `<span class="relevance-score" title="相关性分数">相关性: ${relevanceDisplay}</span>`
+      ? `<span class="relevance-score" title="${escapeHtml(relevanceReason)}">相关性: ${relevanceDisplay}</span>`
       : '';
 
     paperCard.innerHTML = `
@@ -1289,13 +1303,23 @@ function showPaperDetails(paper, paperIndex) {
   // 添加匹配标记
   const matchedPaperClass = paper.isMatched ? 'matched-paper-details' : '';
   
+  // 显示相关性分数和原因（如果有）
+  const relevanceDisplay = formatRelevanceScore(paper.relevance_score);
+  const relevanceReason = paper.relevance_reason ? escapeHtml(paper.relevance_reason) : '';
+  const relevanceHtml = relevanceDisplay
+    ? `<div class="relevance-info">
+        <p><strong>相关性: </strong>${relevanceDisplay}</p>
+        ${relevanceReason ? `<p><strong>原因: </strong>${relevanceReason}</p>` : ''}
+       </div>`
+    : '';
+
   const modalContent = `
     <div class="paper-details ${matchedPaperClass}">
       <p><strong>Authors: </strong>${highlightedAuthors}</p>
       <p><strong>Categories: </strong>${categoryDisplay}</p>
       <p><strong>Date: </strong>${formatDate(paper.date)}</p>
-      
-      
+      ${relevanceHtml}
+
       <h3>TL;DR</h3>
       <p>${highlightedSummary}</p>
       

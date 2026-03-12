@@ -94,12 +94,16 @@ def format_paper(paper: Dict, index: int) -> str:
 
     url = paper.get('abs', paper.get('url', ''))
 
+    # Get relevance reason if available
+    relevance_reason = paper.get('relevance_reason', '')
+    reason_section = f"\n**相关性说明:** {relevance_reason}\n" if relevance_reason else ""
+
     return f"""
 ## 📄 论文 {index} - 相关性: {score_display}
 **标题:** {title}
 **作者:** {authors}
 **arXiv:** {url}
-
+{reason_section}
 **摘要:** {tldr}
 """
 

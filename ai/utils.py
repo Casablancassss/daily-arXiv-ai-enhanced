@@ -44,8 +44,9 @@ def load_research_profile(profile_str: str = None) -> Optional[Dict]:
     field = os.environ.get('RESEARCH_FIELD', '')
     pain_points = os.environ.get('RESEARCH_PAIN_POINTS', '')
     methods = os.environ.get('RESEARCH_METHODS', '')
+    keywords = os.environ.get('RESEARCH_KEYWORDS', '')
 
-    if field or pain_points or methods:
+    if field or pain_points or methods or keywords:
         profile = {}
         if field:
             profile['field'] = field
@@ -55,6 +56,9 @@ def load_research_profile(profile_str: str = None) -> Optional[Dict]:
         if methods:
             # Split by comma if multiple values
             profile['methods'] = [m.strip() for m in methods.split(',') if m.strip()]
+        if keywords:
+            # Split by comma if multiple values
+            profile['keywords'] = [k.strip() for k in keywords.split(',') if k.strip()]
         return profile if profile else None
 
     return None

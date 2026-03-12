@@ -1,6 +1,7 @@
 import os
 import json
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
 import requests
@@ -174,6 +175,12 @@ def process_single_item(chain, item: Dict, language: str) -> Dict:
 
 def process_all_items(data: List[Dict], model_name: str, language: str, max_workers: int) -> List[Dict]:
     """并行处理所有数据项"""
+    # Request delay in seconds, default 5.0
+    try:
+        request_delay = float(os.environ.get("REQUEST_DELAY", 5))
+    except (ValueError, TypeError):
+        request_delay = 5.0
+
     llm = ChatOpenAI(model=model_name).with_structured_output(Structure, method="function_calling")
     print('Connect to:', model_name, file=sys.stderr)
     
@@ -183,16 +190,20 @@ def process_all_items(data: List[Dict], model_name: str, language: str, max_work
     ])
 
     chain = prompt_template | llm
-    
+
     # 使用线程池并行处理
     processed_data = [None] * len(data)  # 预分配结果列表
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # 提交所有任务
-        future_to_idx = {
-            executor.submit(process_single_item, chain, item, language): idx
-            for idx, item in enumerate(data)
-        }
-        
+        future_to_idx = {}
+
+        for idx, item in enumerate(data):
+            # Rate limit: sleep before submitting each request
+            if request_delay > 0 and idx > 0:
+                time.sleep(request_delay)
+            future = executor.submit(process_single_item, chain, item, language)
+            future_to_idx[future] = idx
+
         # 使用tqdm显示进度
         for future in tqdm(
             as_completed(future_to_idx),
@@ -214,7 +225,7 @@ def process_all_items(data: List[Dict], model_name: str, language: str, max_work
                     "result": "Processing failed",
                     "conclusion": "Processing failed"
                 }
-    
+
     return processed_data
 
 def main():

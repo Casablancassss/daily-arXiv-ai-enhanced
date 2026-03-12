@@ -8,77 +8,148 @@
 
 ---
 
-## Languages | 语言
-[English](./README.md) | [中文](./README.zh-cn.md)
+**Languages:** [English](./README.md) | [中文](./README.zh-cn.md)
 
 ---
 
-This innovative tool transforms how you stay updated with arXiv papers by combining automated crawling with AI-powered summarization.
+Transform your daily arXiv paper tracking with AI-powered crawling, summarization, and smart relevance scoring.
 
+## ✨ Features
 
-## ✨ Key Features
+| Feature | Description |
+|---------|-------------|
+| 🎯 **Zero Infrastructure** | GitHub Actions + Pages, no server needed |
+| 🤖 **AI Summarization** | DeepSeek-powered paper summaries |
+| 📊 **Smart Scoring** | Research profile-based relevance ranking |
+| 💰 **Cost Effective** | ~0.2 CNY/day |
+| 📱 **Cross-Platform** | Desktop & mobile compatible |
 
-🎯 **Zero Infrastructure Required**
-- Leverages GitHub Actions and Pages - no server needed
-- Completely free to deploy and use
+**[Try it now](https://Casablancassss.github.io/daily-arXiv-ai-enhanced/)** · **[Star ⭐](https://github.com/Casablancassss/daily-arXiv-ai-enhanced)**
 
-🤖 **Smart AI Summarization**
-- Daily paper crawling with DeepSeek-powered summaries
-- Cost-effective: Only ~0.2 CNY per day
+---
 
-💫 **Smart Reading Experience**
-- Personalized paper highlighting based on your interests
-- Research profile-based relevance scoring and sorting
-- Cross-device compatibility (desktop & mobile)
-- Local preference storage for privacy
-- Flexible date range filtering
+## 🚀 Quick Start
 
-👉 **[Try it now!](https://Casablancassss.github.io/daily-arXiv-ai-enhanced/)** - No installation required
+### 1. Fork & Configure
 
+| Step | Action |
+|------|--------|
+| 1 | Fork this repository |
+| 2 | Go to **Settings → Secrets and variables → Actions** |
+| 3 | Add **Secrets**: `OPENAI_API_KEY`, `OPENAI_BASE_URL` |
+| 4 | Add **Variables**: `CATEGORIES`, `LANGUAGE`, `MODEL_NAME`, `EMAIL`, `NAME` |
+| 5 | (Optional) Add `ACCESS_PASSWORD` secret for privacy |
 
+### 2. Configure Research Profile
 
-# How to use
-This repo will daily crawl arXiv papers about **cs.CV, cs.GR, cs.CL and cs.AI**, and use **DeepSeek** to summarize the papers in **Chinese**.
-If you wish to crawl other arXiv categories, use other LLMs, or other languages, please follow the instructions.
-Otherwise, you can directly use this repo in https://Casablancassss.github.io/daily-arXiv-ai-enhanced/. Please star it if you like :)
+Just describe your research area in natural language:
 
-**Instructions:**
-1. Fork this repo to your own account.
-2. Go to: your-own-repo -> Settings -> Secrets and variables -> Actions
-3. Go to Secrets. Secrets are encrypted and used for sensitive data
-4. Create two repository secrets named `OPENAI_API_KEY` and `OPENAI_BASE_URL`, and input corresponding values.
-5. [Optional] Set a password in `secrets.ACCESS_PASSWORD` if you do not wish others to access your page.
-6. Go to Variables. Variables are shown as plain text and are used for non-sensitive data
-7. Create the following repository variables:
-   1. `CATEGORIES`: separate the categories with ",", such as "cs.CL, cs.CV"
-   2. `LANGUAGE`: such as "Chinese" or "English"
-   3. `MODEL_NAME`: such as "deepseek-chat"
-   4. `EMAIL`: your email for push to GitHub
-   5. `NAME`: your name for push to GitHub
-   6. [Optional] `RESEARCH_PROFILE`: JSON string for research profile matching (see below)
-
-#### Research Profile (Optional)
-Configure a research profile to enable AI-powered paper relevance scoring. The system will calculate relevance scores and sort papers by relevance.
-
-**Format:**
-```json
-{
-  "field": "研究方向，如：大模型推理",
-  "pain_points": ["当前痛点，如：长上下文部署"],
-  "methods": ["关注方法，如：LoRA, quantization, PagedAttention"]
-}
+```
+Settings → Secrets and variables → Actions → Variables
+Add: RESEARCH_DESCRIPTION = "I'm researching human motion generation using
+diffusion models and LoRA. But it's hard to get high-quality 3D human
+motion data, and inference is slow."
 ```
 
-**Example:**
-```json
-{"field":"大模型推理","pain_points":["长上下文部署"],"methods":["LoRA","quantization","PagedAttention"]}
+AI will automatically extract:
+- **field** - Main research area
+- **pain_points** - Current challenges
+- **methods** - Techniques you use
+- **keywords** - Related terms
+
+### 3. Run Workflow
+
+1. Go to **Actions → arXiv-daily-ai-enhanced**
+2. Click **Run workflow**
+3. Wait ~1 hour for processing
+
+### 4. Enable GitHub Pages
+
+**Settings → Pages → Build and deployment:**
+- Source: Deploy from a branch
+- Branch: main / (root)
+
+Access at: `https://<username>.github.io/daily-arXiv-ai-enhanced/`
+
+---
+
+## 📋 Configuration Reference
+
+### Variables (Settings → Secrets and variables → Actions → Variables)
+
+| Variable | Required | Example |
+|----------|----------|---------|
+| `CATEGORIES` | ✅ | `cs.CV, cs.CL, cs.AI` |
+| `LANGUAGE` | ✅ | `Chinese` or `English` |
+| `MODEL_NAME` | ✅ | `deepseek-chat` |
+| `EMAIL` | ✅ | `you@example.com` |
+| `NAME` | ✅ | `Your Name` |
+| `RESEARCH_DESCRIPTION` | ❌ | Your research description |
+
+### Secrets (Settings → Secrets and variables → Actions → Secrets)
+
+| Secret | Required | Example |
+|--------|----------|---------|
+| `OPENAI_API_KEY` | ✅ | `sk-...` |
+| `OPENAI_BASE_URL` | ✅ | `https://api.deepseek.com` |
+| `ACCESS_PASSWORD` | ❌ | Your password |
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  arXiv Crawler  │ ──▶ │  AI Enhancement  │ ──▶ │ Relevance Score │
+│   (Scrapy)      │     │  (LLM Summary)   │     │ (LLM Scoring)   │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+                                                         │
+                                                         ▼
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│   GitHub Pages  │ ◀── │   Markdown Gen   │ ◀── │   JSONL Data    │
+│   (Website)     │     │   (Template)     │     │   (Daily)       │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
 ```
 
-**Scoring Weights:**
-- Field match (weight 1.0): Match research field in title, summary, AI tldr/motivation
-- Pain points match (weight 1.5): Match current pain points
-- Methods match (weight 2.0): Match methods in AI method/result
+---
 
-8. Go to your-own-repo -> Actions -> arXiv-daily-ai-enhanced
-9. You can manually click **Run workflow** to test if it works well (it may take about one hour). By default, this action will automatically run every day. You can modify it in `.github/workflows/run.yml`
-10. Set up GitHub pages: Go to your own repo -> Settings -> Pages. In `Build and deployment`, set `Source="Deploy from a branch"`, `Branch="main", "/(root)"`. Wait for a few minutes, go to https://\<username\>.github.io/daily-arXiv-ai-enhanced/.
+## 📁 Project Structure
+
+```
+.
+├── ai/                      # AI processing scripts
+│   ├── enhance.py          # Paper summarization
+│   ├── score_relevance.py  # Relevance scoring
+│   ├── parse_profile.py    # Research profile parser
+│   └── generate_report.py  # Report generation
+├── daily_arxiv/            # arXiv crawler (Scrapy)
+├── to_md/                  # Markdown converter
+├── .github/workflows/      # GitHub Actions
+└── data/                   # Daily paper data
+```
+
+---
+
+## 🔧 Customization
+
+### Change Categories
+```bash
+# In workflow or variables
+CATEGORIES=cs.CV,cs.CL,cs.AI,cs.LG
+```
+
+### Change Language
+```bash
+LANGUAGE=English  # or Chinese
+```
+
+### Use Different LLM
+```bash
+MODEL_NAME=gpt-4o
+```
+
+---
+
+## 📄 License
+
+MIT License - Feel free to use and modify!
