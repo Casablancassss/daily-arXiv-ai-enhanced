@@ -31,18 +31,37 @@ if __name__ == "__main__":
         else:
             return len(preference)
 
-    with open(args.data, "r") as f:
+    with open(args.data, "r", encoding="utf-8") as f:
         for line in f:
             data.append(json.loads(line))
 
-    categories = set([item["categories"][0] for item in data])
-    template = open("paper_template.md", "r").read()
+    # Safely get categories with default handling
+    categories = set()
+    for item in data:
+        cats = item.get("categories", [])
+        if cats:
+            categories.add(cats[0])
+
+    # Safely read template file
+    try:
+        with open("paper_template.md", "r", encoding="utf-8") as f:
+            template = f.read()
+    except FileNotFoundError:
+        print("Error: paper_template.md not found", file=sys.stderr)
+        sys.exit(1)
+    except OSError as e:
+        print(f"Error reading template file: {e}", file=sys.stderr)
+        sys.exit(1)
+
     categories = sorted(categories, key=rank)
     cnt = {cate: 0 for cate in categories}
     for item in data:
-        if item["categories"][0] not in cnt.keys():
+        cats = item.get("categories", [])
+        if not cats:
             continue
-        cnt[item["categories"][0]] += 1
+        primary_cat = cats[0]
+        if primary_cat in cnt:
+            cnt[primary_cat] += 1
 
     markdown = f"<div id=toc></div>\n\n# Table of Contents\n\n"
     for idx, cate in enumerate(categories):
@@ -54,34 +73,37 @@ if __name__ == "__main__":
         markdown += f"# {cate} [[Back]](#toc)\n\n"
         papers = []
         for item in data:
-            if item["categories"][0] == cate:
-                # Safely access AI fields with default values
-                ai_data = item.get('AI', {})
-                if not ai_data or not isinstance(ai_data, dict):
-                    print(f"Skipping item '{item.get('title', 'Unknown')}' due to missing or invalid AI data")
-                    continue
-                
-                # Check if all required AI fields are present
-                required_fields = ['tldr', 'motivation', 'method', 'result', 'conclusion']
-                if not all(field in ai_data for field in required_fields):
-                    print(f"Skipping item '{item.get('title', 'Unknown')}' due to incomplete AI fields")
-                    continue
-                
-                papers.append(
-                    template.format(
-                        title=escape_template_chars(item["title"]),
-                        authors=escape_template_chars(",".join(item["authors"])),
-                        summary=escape_template_chars(item["summary"]),
-                        url=item['abs'],
-                        tldr=escape_template_chars(ai_data.get('tldr', '')),
-                        motivation=escape_template_chars(ai_data.get('motivation', '')),
-                        method=escape_template_chars(ai_data.get('method', '')),
-                        result=escape_template_chars(ai_data.get('result', '')),
-                        conclusion=escape_template_chars(ai_data.get('conclusion', '')),
-                        cate=item['categories'][0],
-                        idx=next(idx)
-                    )
+            cats = item.get("categories", [])
+            if not cats or cats[0] != cate:
+                continue
+
+            # Safely access AI fields with default values
+            ai_data = item.get('AI', {})
+            if not ai_data or not isinstance(ai_data, dict):
+                print(f"Skipping item '{item.get('title', 'Unknown')}' due to missing or invalid AI data")
+                continue
+
+            # Check if all required AI fields are present
+            required_fields = ['tldr', 'motivation', 'method', 'result', 'conclusion']
+            if not all(field in ai_data for field in required_fields):
+                print(f"Skipping item '{item.get('title', 'Unknown')}' due to incomplete AI fields")
+                continue
+
+            papers.append(
+                template.format(
+                    title=escape_template_chars(item.get("title", "Untitled")),
+                    authors=escape_template_chars(",".join(item.get("authors", []))),
+                    summary=escape_template_chars(item.get("summary", "")),
+                    url=item.get('abs', item.get('url', '')),
+                    tldr=escape_template_chars(ai_data.get('tldr', '')),
+                    motivation=escape_template_chars(ai_data.get('motivation', '')),
+                    method=escape_template_chars(ai_data.get('method', '')),
+                    result=escape_template_chars(ai_data.get('result', '')),
+                    conclusion=escape_template_chars(ai_data.get('conclusion', '')),
+                    cate=cats[0],
+                    idx=next(idx)
                 )
+            )
         markdown += "\n\n".join(papers)
-    with open(args.data.split('_')[0] + '.md', "w") as f:
+    with open(args.data.split('_')[0] + '.md', "w", encoding="utf-8") as f:
         f.write(markdown)

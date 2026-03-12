@@ -16,3 +16,8 @@ dependencies = [
     "tqdm>=4.67.1",
 ]
 license = "Apache-2.0"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]

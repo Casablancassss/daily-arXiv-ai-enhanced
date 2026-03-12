@@ -29,6 +29,12 @@ from pydantic import BaseModel, Field
 if os.path.exists('.env'):
     dotenv.load_dotenv()
 
+# Use shared utilities - support both module import and direct script execution
+try:
+    from utils import load_research_profile
+except ModuleNotFoundError:
+    from ai.utils import load_research_profile
+
 
 class RelevanceScore(BaseModel):
     """LLM output structure for relevance scoring"""
@@ -64,35 +70,6 @@ Paper Information:
 - Result: {result}
 
 Evaluate the relevance of this paper to the research profile and provide a score (0-100) with a brief reason."""
-
-
-def load_research_profile(profile_str: str) -> Optional[Dict]:
-    """Load research profile from JSON string or individual environment variables"""
-    # Try JSON string first
-    if profile_str:
-        try:
-            return json.loads(profile_str)
-        except json.JSONDecodeError as e:
-            print(f"Failed to parse RESEARCH_PROFILE as JSON: {e}", file=sys.stderr)
-
-    # Fallback: read from individual environment variables
-    field = os.environ.get('RESEARCH_FIELD', '')
-    pain_points = os.environ.get('RESEARCH_PAIN_POINTS', '')
-    methods = os.environ.get('RESEARCH_METHODS', '')
-
-    if field or pain_points or methods:
-        profile = {}
-        if field:
-            profile['field'] = field
-        if pain_points:
-            # Split by comma if multiple values
-            profile['pain_points'] = [p.strip() for p in pain_points.split(',') if p.strip()]
-        if methods:
-            # Split by comma if multiple values
-            profile['methods'] = [m.strip() for m in methods.split(',') if m.strip()]
-        return profile if profile else None
-
-    return None
 
 
 def calculate_relevance_with_llm(

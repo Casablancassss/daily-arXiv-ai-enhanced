@@ -18,10 +18,22 @@ from langchain.prompts import (
 )
 from structure import Structure
 
+# Use shared utilities - support both module import and direct script execution
+try:
+    from utils import load_research_profile, get_sensitive_check_url, read_template_file
+except ModuleNotFoundError:
+    from ai.utils import load_research_profile, get_sensitive_check_url, read_template_file
+
 if os.path.exists('.env'):
     dotenv.load_dotenv()
-template = open("template.txt", "r").read()
-system = open("system.txt", "r").read()
+
+# Safely read template files
+try:
+    template = read_template_file("ai/template.txt")
+    system = read_template_file("ai/system.txt")
+except FileNotFoundError as e:
+    print(f"Error: {e}", file=sys.stderr)
+    sys.exit(1)
 
 def calculate_relevance_score(item: Dict, profile: Dict) -> float:
     """
@@ -83,12 +95,13 @@ def parse_args():
 def process_single_item(chain, item: Dict, language: str) -> Dict:
     def is_sensitive(content: str) -> bool:
         """
-        调用 spam.dw-dengwei.workers.dev 接口检测内容是否包含敏感词。
+        调用敏感词检测接口检测内容是否包含敏感词。
+        使用 SENSITIVE_CHECK_URL 环境变量配置接口地址。
         返回 True 表示触发敏感词，False 表示未触发。
         """
         try:
             resp = requests.post(
-                "https://spam.dw-dengwei.workers.dev",
+                get_sensitive_check_url(),
                 json={"text": content},
                 timeout=5
             )
@@ -209,32 +222,10 @@ def main():
     model_name = os.environ.get("MODEL_NAME", 'deepseek-chat')
     language = os.environ.get("LANGUAGE", 'Chinese')
 
-    # 读取研究画像配置
-    research_profile = None
-    profile_str = os.environ.get('RESEARCH_PROFILE', '')
-    if profile_str:
-        try:
-            research_profile = json.loads(profile_str)
-            print(f'Research profile loaded: {research_profile}', file=sys.stderr)
-        except json.JSONDecodeError as e:
-            print(f'Failed to parse RESEARCH_PROFILE: {e}', file=sys.stderr)
-
-    # Fallback: read from individual environment variables
-    if not research_profile:
-        field = os.environ.get('RESEARCH_FIELD', '')
-        pain_points = os.environ.get('RESEARCH_PAIN_POINTS', '')
-        methods = os.environ.get('RESEARCH_METHODS', '')
-
-        if field or pain_points or methods:
-            research_profile = {}
-            if field:
-                research_profile['field'] = field
-            if pain_points:
-                research_profile['pain_points'] = [p.strip() for p in pain_points.split(',') if p.strip()]
-            if methods:
-                research_profile['methods'] = [m.strip() for m in methods.split(',') if m.strip()]
-            if research_profile:
-                print(f'Research profile loaded from individual vars: {research_profile}', file=sys.stderr)
+    # 使用共享工具加载研究画像配置
+    research_profile = load_research_profile()
+    if research_profile:
+        print(f'Research profile loaded: {research_profile}', file=sys.stderr)
 
     # 检查并删除目标文件
     target_file = args.data.replace('.jsonl', f'_AI_enhanced_{language}.jsonl')
@@ -248,12 +239,15 @@ def main():
         for line in f:
             data.append(json.loads(line))
 
-    # 去重
+    # 去重 - 安全处理可能为 None 或缺少 id 字段的 item
     seen_ids = set()
     unique_data = []
     for item in data:
-        if item['id'] not in seen_ids:
-            seen_ids.add(item['id'])
+        if item is None:
+            continue
+        item_id = item.get('id')
+        if item_id and item_id not in seen_ids:
+            seen_ids.add(item_id)
             unique_data.append(item)
 
     data = unique_data
@@ -275,7 +269,7 @@ def main():
         print(f'Calculated relevance scores for {len(processed_data)} papers', file=sys.stderr)
 
     # 保存结果
-    with open(target_file, "w") as f:
+    with open(target_file, "w", encoding="utf-8") as f:
         for item in processed_data:
             if item is not None:
                 f.write(json.dumps(item) + "\n")

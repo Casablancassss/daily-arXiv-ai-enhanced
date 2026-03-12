@@ -12,6 +12,12 @@ from typing import List, Dict, Optional
 
 import dotenv
 
+# Use shared utilities - support both module import and direct script execution
+try:
+    from utils import load_research_profile
+except ModuleNotFoundError:
+    from ai.utils import load_research_profile
+
 # Load environment variables
 if os.path.exists('.env'):
     dotenv.load_dotenv()
@@ -151,31 +157,8 @@ def main():
     parser.add_argument("--output", type=str, default=None, help="Output file (default: print to stdout)")
     args = parser.parse_args()
 
-    # Load research profile
-    profile_str = os.environ.get('RESEARCH_PROFILE', '')
-    research_profile = None
-    if profile_str:
-        try:
-            research_profile = json.loads(profile_str)
-        except (json.JSONDecodeError, ValueError) as e:
-            print(f"Warning: Failed to parse RESEARCH_PROFILE: {e}", file=sys.stderr)
-            print(f"Raw profile: {profile_str[:100]}...", file=sys.stderr)
-            print("Please check your RESEARCH_PROFILE JSON format", file=sys.stderr)
-
-    # Fallback: read from individual environment variables
-    if not research_profile:
-        field = os.environ.get('RESEARCH_FIELD', '')
-        pain_points = os.environ.get('RESEARCH_PAIN_POINTS', '')
-        methods = os.environ.get('RESEARCH_METHODS', '')
-
-        if field or pain_points or methods:
-            research_profile = {}
-            if field:
-                research_profile['field'] = field
-            if pain_points:
-                research_profile['pain_points'] = [p.strip() for p in pain_points.split(',') if p.strip()]
-            if methods:
-                research_profile['methods'] = [m.strip() for m in methods.split(',') if m.strip()]
+    # 使用共享工具加载研究画像
+    research_profile = load_research_profile()
 
     # Generate report
     report = generate_report(

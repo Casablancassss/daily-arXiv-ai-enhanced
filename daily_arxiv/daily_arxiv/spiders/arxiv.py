@@ -14,8 +14,9 @@ class ArxivSpider(scrapy.Spider):
         self.start_urls = [
             f"https://arxiv.org/list/{cat}/new" for cat in self.target_categories
         ]  # 起始URL（计算机科学领域的最新论文）
-        # 实例属性：已抓取的论文计数器
+        # 实例属性：已抓取的论文计数器和最大抓取数量
         self.papers_scraped = 0
+        self.MAX_PAPERS = int(os.environ.get("MAX_PAPERS", 0))  # 0 表示无限制
 
     name = "arxiv"  # 爬虫名称
     allowed_domains = ["arxiv.org"]  # 允许爬取的域名
@@ -39,7 +40,13 @@ class ArxivSpider(scrapy.Spider):
             if not paper_anchor:
                 continue
 
-            paper_id = int(paper_anchor.split("item")[-1])
+            # Safely parse paper ID
+            try:
+                paper_id = int(paper_anchor.split("item")[-1])
+            except ValueError:
+                self.logger.warning(f"Could not parse paper ID from anchor: {paper_anchor}")
+                continue
+
             if anchors and paper_id >= anchors[-1]:
                 continue
 
